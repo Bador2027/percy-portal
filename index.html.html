@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Percy Group | Global Portal</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <!-- Gun.js for Real-time Sync -->
+    <script src="https://cdn.jsdelivr.net/npm/gun/gun.js"></script>
+    <style>
+        .hidden { display: none; }
+        .glass { background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.1); }
+        body { background-color: #0b141a; color: #e9edef; font-family: 'Segoe UI', sans-serif; overflow-x: hidden; }
+        
+        .wa-sidebar { background-color: #111b21; border-right: 1px solid #222d34; }
+        .wa-header { background-color: #202c33; color: #d1d7db; }
+        .wa-chat-bg { 
+            background-color: #0b141a;
+            background-image: url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png'); 
+            background-blend-mode: overlay;
+        }
+        .wa-bubble-out { background-color: #005c4b; border-radius: 8px 0 8px 8px; align-self: flex-end; }
+        .wa-bubble-in { background-color: #202c33; border-radius: 0 8px 8px 8px; align-self: flex-start; }
+        
+        .admin-only { display: none; }
+        .is-admin .admin-only { display: block !important; }
+        
+        input, textarea { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: white; }
+    </style>
+</head>
+<body>
+
+    <!-- NAV -->
+    <nav id="main-nav" class="fixed top-0 w-full z-50 p-6">
+        <div class="max-w-6xl mx-auto flex justify-between items-center glass p-4 rounded-2xl">
+            <div class="text-xl font-black tracking-tighter">PERCY <span class="text-blue-500">GROUP</span></div>
+            <div class="space-x-6 text-sm font-medium flex items-center">
+                <a href="#" onclick="showSection('home')" class="hover:text-blue-400">Home</a>
+                <a href="#" onclick="showSection('about')" class="hover:text-blue-400">About</a>
+                <a href="#" onclick="showSection('photos')" class="hover:text-blue-400">Photos</a>
+                <a href="#" onclick="showSection('contact')" class="hover:text-blue-400">Contact</a>
+                <button id="login-nav-btn" onclick="showSection('login')" class="bg-blue-600 px-5 py-2 rounded-full font-bold">Login</button>
+                <div id="user-badge" class="hidden flex items-center gap-2 bg-green-600/20 px-3 py-1 rounded-full text-green-400 border border-green-500/30">
+                    <i class="fas fa-user-circle"></i> <span id="user-display-name"></span>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- SECTION: HOME -->
+    <section id="home" class="view h-screen flex flex-col justify-center items-center text-center px-6">
+        <h1 class="text-7xl font-bold mb-4 tracking-tighter">Percy Group Portal</h1>
+        <p class="text-gray-400 max-w-xl text-lg mb-8">Secure communication and asset management.</p>
+        <button onclick="showSection('login')" class="bg-white text-black px-8 py-3 rounded-full font-bold hover:bg-blue-500 hover:text-white transition">Start Chatting</button>
+    </section>
+
+    <!-- SECTION: ABOUT (SYNCED) -->
+    <section id="about" class="view hidden pt-32 px-6 max-w-4xl mx-auto">
+        <div class="flex justify-between items-center mb-6">
+            <h2 class="text-4xl font-bold">About Us</h2>
+            <button onclick="toggleEdit('about')" class="admin-only bg-blue-600 px-4 py-1 rounded text-xs font-bold">EDIT</button>
+        </div>
+        <div id="about-display" class="glass p-8 rounded-3xl text-xl leading-relaxed text-gray-300">Loading...</div>
+        <div id="about-edit" class="hidden space-y-4">
+            <textarea id="about-input" class="w-full h-48 p-4 rounded-2xl outline-none"></textarea>
+            <button onclick="saveAbout()" class="bg-green-600 px-6 py-2 rounded-xl font-bold">Save Global About</button>
+        </div>
+    </section>
+
+    <!-- SECTION: PHOTOS (SYNCED) -->
+    <section id="photos" class="view hidden pt-32 px-6 max-w-6xl mx-auto pb-20">
+        <div class="flex justify-between items-center mb-10">
+            <h2 class="text-4xl font-bold">Shared Gallery</h2>
+            <div class="admin-only">
+                <label class="bg-blue-600 px-4 py-2 rounded-xl cursor-pointer font-bold text-sm">
+                    Upload Photo <input type="file" class="hidden" accept="image/*" onchange="uploadImage(this)">
+                </label>
+            </div>
+        </div>
+        <div id="gallery-grid" class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <!-- Photos from Gun.js appear here -->
+        </div>
+    </section>
+
+    <!-- SECTION: CONTACT (SYNCED) -->
+    <section id="contact" class="view hidden pt-32 px-6 max-w-xl mx-auto">
+        <h2 class="text-4xl font-bold mb-6 text-center">Contact</h2>
+        <div class="glass p-8 rounded-3xl space-y-6">
+            <div class="flex items-center gap-4">
+                <i class="fas fa-envelope text-blue-500 w-8"></i>
+                <span id="contact-email">loading...</span>
+            </div>
+            <div class="admin-only space-y-2">
+                <input type="text" id="email-input" placeholder="New Email" class="w-full p-2 rounded-lg text-sm">
+                <button onclick="saveContact()" class="bg-blue-600 w-full py-2 rounded-lg text-xs font-bold">Update Global Email</button>
+            </div>
+        </div>
+    </section>
+
+    <!-- SECTION: LOGIN -->
+    <section id="login" class="view hidden h-screen flex items-center justify-center px-6">
+        <div class="glass p-10 rounded-[2rem] w-full max-w-md border-t-4 border-blue-500">
+            <h2 class="text-3xl font-bold mb-2">Join Portal</h2>
+            <p class="text-gray-500 mb-8 text-sm">Enter your nickname to start chatting with friends.</p>
+            <input type="text" id="nickname" placeholder="Your Nickname" class="w-full p-4 rounded-xl mb-4 outline-none">
+            <p class="text-xs text-gray-500 mb-4">Are you an admin? Enter secret below.</p>
+            <input type="password" id="admin-password" placeholder="Admin Password (Optional)" class="w-full p-4 rounded-xl mb-6 outline-none">
+            <button onclick="doLogin()" class="w-full py-4 bg-blue-600 rounded-xl font-bold">Enter Application</button>
+        </div>
+    </section>
+
+    <!-- WHATSAPP INTERFACE -->
+    <section id="whatsapp-clone" class="view hidden h-screen w-full flex overflow-hidden">
+        <div class="w-1/4 wa-sidebar flex flex-col">
+            <div class="wa-header p-4 flex justify-between items-center">
+                <span class="font-bold text-blue-500">MESSENGER</span>
+                <i class="fas fa-sign-out-alt cursor-pointer" onclick="location.reload()"></i>
+            </div>
+            <div class="p-4 text-xs text-gray-500 uppercase tracking-widest">Global Chat Room</div>
+            <div class="flex-1 p-4 space-y-2" id="online-users">
+                <div class="flex items-center gap-3 p-2 bg-[#202c33] rounded-lg">
+                    <div class="w-3 h-3 bg-green-500 rounded-full"></div>
+                    <span>Public Channel</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex-1 flex flex-col">
+            <div class="wa-header p-3 px-6 flex justify-between items-center shadow-lg">
+                <div class="flex items-center gap-4">
+                    <div class="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center font-bold">P</div>
+                    <div>
+                        <h2 class="font-medium">Percy Group Mainframe</h2>
+                        <p class="text-[10px] text-green-500">● Live Sync Active</p>
+                    </div>
+                </div>
+            </div>
+
+            <div id="chat-messages" class="flex-1 wa-chat-bg p-6 overflow-y-auto flex flex-col gap-2">
+                <!-- Messages will sync here -->
+            </div>
+
+            <div class="wa-header p-4 flex items-center gap-4">
+                <input id="chat-input" type="text" placeholder="Type a message..." class="flex-1 bg-[#2a3942] p-3 px-6 rounded-full border-none outline-none">
+                <button onclick="sendGlobalMessage()" class="bg-blue-600 w-12 h-12 rounded-full flex items-center justify-center hover:scale-110 transition">
+                    <i class="fas fa-paper-plane"></i>
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <script>
+        // 1. INITIALIZE GUN (Real-time Engine)
+        // Using public relay peers so it works across different networks
+        const gun = Gun(['https://gun-manhattan.herokuapp.com/gun']);
+        const db = gun.get('percy_group_v3');
+        
+        let currentUser = "Guest";
+        let isAdmin = false;
+
+        // 2. SYNC ABOUT, PHOTOS, CONTACT
+        db.get('about').on(data => {
+            document.getElementById('about-display').innerText = data || "No about info yet.";
+            document.getElementById('about-input').value = data || "";
+        });
+
+        db.get('email').on(data => {
+            document.getElementById('contact-email').innerText = data || "not-set@percy.com";
+        });
+
+        // Sync Gallery
+        db.get('gallery').map().on((data, id) => {
+            if(!data) return;
+            const existing = document.getElementById(id);
+            if(!existing){
+                const imgCard = document.createElement('div');
+                imgCard.id = id;
+                imgCard.className = "h-48 rounded-2xl overflow-hidden border border-white/10 relative group";
+                imgCard.innerHTML = `<img src="${data.url}" class="w-full h-full object-cover">`;
+                
+                if(isAdmin){
+                    const delBtn = document.createElement('button');
+                    delBtn.className = "absolute top-2 right-2 bg-red-600 p-2 rounded-lg opacity-0 group-hover:opacity-100 transition";
+                    delBtn.innerHTML = `<i class="fas fa-trash"></i>`;
+                    delBtn.onclick = () => db.get('gallery').get(id).put(null);
+                    imgCard.appendChild(delBtn);
+                }
+                document.getElementById('gallery-grid').appendChild(imgCard);
+            }
+        });
+
+        // 3. CHAT SYNC
+        db.get('chat').map().on((data, id) => {
+            if(!data) return;
+            const chatBox = document.getElementById('chat-messages');
+            if(document.getElementById(id)) return;
+
+            const isMe = data.user === currentUser;
+            const msgHtml = `
+                <div id="${id}" class="max-w-[70%] p-3 px-4 shadow-sm ${isMe ? 'wa-bubble-out' : 'wa-bubble-in'}">
+                    <div class="text-[10px] font-bold ${isMe ? 'text-blue-200' : 'text-blue-400'} mb-1">${data.user}</div>
+                    <div class="text-sm">${data.text}</div>
+                    <div class="text-[9px] text-gray-400 text-right mt-1">${data.time}</div>
+                </div>
+            `;
+            chatBox.insertAdjacentHTML('beforeend', msgHtml);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        });
+
+        // 4. FUNCTIONALITY
+        function showSection(id) {
+            document.querySelectorAll('.view').forEach(v => v.classList.add('hidden'));
+            document.getElementById(id).classList.remove('hidden');
+            document.getElementById('main-nav').classList.toggle('hidden', id === 'whatsapp-clone');
+        }
+
+        function doLogin() {
+            const nick = document.getElementById('nickname').value;
+            const pass = document.getElementById('admin-password').value;
+            
+            if(!nick) return alert("Enter a nickname");
+            
+            currentUser = nick;
+            if(pass === "1234") {
+                isAdmin = true;
+                document.body.classList.add('is-admin');
+            }
+
+            document.getElementById('user-display-name').innerText = nick;
+            document.getElementById('user-badge').classList.remove('hidden');
+            document.getElementById('login-nav-btn').classList.add('hidden');
+            showSection('whatsapp-clone');
+        }
+
+        function sendGlobalMessage() {
+            const input = document.getElementById('chat-input');
+            if(!input.value) return;
+
+            db.get('chat').set({
+                user: currentUser,
+                text: input.value,
+                time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            });
+            input.value = "";
+        }
+
+        // Admin Edit Functions
+        function toggleEdit(type) {
+            document.getElementById(type + '-display').classList.toggle('hidden');
+            document.getElementById(type + '-edit').classList.toggle('hidden');
+        }
+
+        function saveAbout() {
+            const val = document.getElementById('about-input').value;
+            db.get('about').put(val);
+            toggleEdit('about');
+        }
+
+        function saveContact() {
+            const val = document.getElementById('email-input').value;
+            db.get('email').put(val);
+        }
+
+        function uploadImage(input) {
+            const file = input.files[0];
+            const reader = new FileReader();
+            reader.onloadend = function() {
+                db.get('gallery').set({ url: reader.result });
+            }
+            reader.readAsDataURL(file);
+        }
+
+        // Enter key to send
+        document.getElementById('chat-input').onkeypress = (e) => { if(e.key === 'Enter') sendGlobalMessage() };
+
+    </script>
+</body>
+</html>
