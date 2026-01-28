@@ -6,7 +6,6 @@
     <title>Percy Group | Global Portal</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <!-- Gun.js for Real-time Sync -->
     <script src="https://cdn.jsdelivr.net/npm/gun/gun.js"></script>
     <style>
         .hidden { display: none; }
@@ -31,7 +30,6 @@
 </head>
 <body>
 
-    <!-- NAV -->
     <nav id="main-nav" class="fixed top-0 w-full z-50 p-6">
         <div class="max-w-6xl mx-auto flex justify-between items-center glass p-4 rounded-2xl">
             <div class="text-xl font-black tracking-tighter">PERCY <span class="text-blue-500">GROUP</span></div>
@@ -48,14 +46,12 @@
         </div>
     </nav>
 
-    <!-- SECTION: HOME -->
     <section id="home" class="view h-screen flex flex-col justify-center items-center text-center px-6">
         <h1 class="text-7xl font-bold mb-4 tracking-tighter">Percy Group Portal</h1>
         <p class="text-gray-400 max-w-xl text-lg mb-8">Secure communication and asset management.</p>
         <button onclick="showSection('login')" class="bg-white text-black px-8 py-3 rounded-full font-bold hover:bg-blue-500 hover:text-white transition">Start Chatting</button>
     </section>
 
-    <!-- SECTION: ABOUT (SYNCED) -->
     <section id="about" class="view hidden pt-32 px-6 max-w-4xl mx-auto">
         <div class="flex justify-between items-center mb-6">
             <h2 class="text-4xl font-bold">About Us</h2>
@@ -68,7 +64,6 @@
         </div>
     </section>
 
-    <!-- SECTION: PHOTOS (SYNCED) -->
     <section id="photos" class="view hidden pt-32 px-6 max-w-6xl mx-auto pb-20">
         <div class="flex justify-between items-center mb-10">
             <h2 class="text-4xl font-bold">Shared Gallery</h2>
@@ -78,12 +73,9 @@
                 </label>
             </div>
         </div>
-        <div id="gallery-grid" class="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <!-- Photos from Gun.js appear here -->
-        </div>
+        <div id="gallery-grid" class="grid grid-cols-2 md:grid-cols-4 gap-4"></div>
     </section>
 
-    <!-- SECTION: CONTACT (SYNCED) -->
     <section id="contact" class="view hidden pt-32 px-6 max-w-xl mx-auto">
         <h2 class="text-4xl font-bold mb-6 text-center">Contact</h2>
         <div class="glass p-8 rounded-3xl space-y-6">
@@ -98,19 +90,15 @@
         </div>
     </section>
 
-    <!-- SECTION: LOGIN -->
     <section id="login" class="view hidden h-screen flex items-center justify-center px-6">
         <div class="glass p-10 rounded-[2rem] w-full max-w-md border-t-4 border-blue-500">
             <h2 class="text-3xl font-bold mb-2">Join Portal</h2>
-            <p class="text-gray-500 mb-8 text-sm">Enter your nickname to start chatting with friends.</p>
             <input type="text" id="nickname" placeholder="Your Nickname" class="w-full p-4 rounded-xl mb-4 outline-none">
-            <p class="text-xs text-gray-500 mb-4">Are you an admin? Enter secret below.</p>
             <input type="password" id="admin-password" placeholder="Admin Password (Optional)" class="w-full p-4 rounded-xl mb-6 outline-none">
             <button onclick="doLogin()" class="w-full py-4 bg-blue-600 rounded-xl font-bold">Enter Application</button>
         </div>
     </section>
 
-    <!-- WHATSAPP INTERFACE -->
     <section id="whatsapp-clone" class="view hidden h-screen w-full flex overflow-hidden">
         <div class="w-1/4 wa-sidebar flex flex-col">
             <div class="wa-header p-4 flex justify-between items-center">
@@ -118,7 +106,7 @@
                 <i class="fas fa-sign-out-alt cursor-pointer" onclick="location.reload()"></i>
             </div>
             <div class="p-4 text-xs text-gray-500 uppercase tracking-widest">Global Chat Room</div>
-            <div class="flex-1 p-4 space-y-2" id="online-users">
+            <div class="flex-1 p-4" id="online-users">
                 <div class="flex items-center gap-3 p-2 bg-[#202c33] rounded-lg">
                     <div class="w-3 h-3 bg-green-500 rounded-full"></div>
                     <span>Public Channel</span>
@@ -137,9 +125,7 @@
                 </div>
             </div>
 
-            <div id="chat-messages" class="flex-1 wa-chat-bg p-6 overflow-y-auto flex flex-col gap-2">
-                <!-- Messages will sync here -->
-            </div>
+            <div id="chat-messages" class="flex-1 wa-chat-bg p-6 overflow-y-auto flex flex-col gap-2"></div>
 
             <div class="wa-header p-4 flex items-center gap-4">
                 <input id="chat-input" type="text" placeholder="Type a message..." class="flex-1 bg-[#2a3942] p-3 px-6 rounded-full border-none outline-none">
@@ -151,15 +137,19 @@
     </section>
 
     <script>
-        // 1. INITIALIZE GUN (Real-time Engine)
-        // Using public relay peers so it works across different networks
-        const gun = Gun(['https://gun-manhattan.herokuapp.com/gun']);
-        const db = gun.get('percy_group_v3');
+        // MODIFIED: Added multiple relay peers for global connectivity
+        const gun = Gun([
+            'https://gun-manhattan.herokuapp.com/gun',
+            'https://peer.wall.org/gun',
+            'https://gundb-relay.herokuapp.com/gun'
+        ]);
+        
+        const db = gun.get('percy_group_v3_global'); // Unique key
         
         let currentUser = "Guest";
         let isAdmin = false;
 
-        // 2. SYNC ABOUT, PHOTOS, CONTACT
+        // Sync Data
         db.get('about').on(data => {
             document.getElementById('about-display').innerText = data || "No about info yet.";
             document.getElementById('about-input').value = data || "";
@@ -169,46 +159,22 @@
             document.getElementById('contact-email').innerText = data || "not-set@percy.com";
         });
 
-        // Sync Gallery
-        db.get('gallery').map().on((data, id) => {
-            if(!data) return;
-            const existing = document.getElementById(id);
-            if(!existing){
-                const imgCard = document.createElement('div');
-                imgCard.id = id;
-                imgCard.className = "h-48 rounded-2xl overflow-hidden border border-white/10 relative group";
-                imgCard.innerHTML = `<img src="${data.url}" class="w-full h-full object-cover">`;
-                
-                if(isAdmin){
-                    const delBtn = document.createElement('button');
-                    delBtn.className = "absolute top-2 right-2 bg-red-600 p-2 rounded-lg opacity-0 group-hover:opacity-100 transition";
-                    delBtn.innerHTML = `<i class="fas fa-trash"></i>`;
-                    delBtn.onclick = () => db.get('gallery').get(id).put(null);
-                    imgCard.appendChild(delBtn);
-                }
-                document.getElementById('gallery-grid').appendChild(imgCard);
-            }
-        });
-
-        // 3. CHAT SYNC
+        // Chat Logic
         db.get('chat').map().on((data, id) => {
-            if(!data) return;
+            if(!data || document.getElementById(id)) return;
             const chatBox = document.getElementById('chat-messages');
-            if(document.getElementById(id)) return;
-
             const isMe = data.user === currentUser;
             const msgHtml = `
                 <div id="${id}" class="max-w-[70%] p-3 px-4 shadow-sm ${isMe ? 'wa-bubble-out' : 'wa-bubble-in'}">
                     <div class="text-[10px] font-bold ${isMe ? 'text-blue-200' : 'text-blue-400'} mb-1">${data.user}</div>
                     <div class="text-sm">${data.text}</div>
                     <div class="text-[9px] text-gray-400 text-right mt-1">${data.time}</div>
-                </div>
-            `;
+                </div>`;
             chatBox.insertAdjacentHTML('beforeend', msgHtml);
             chatBox.scrollTop = chatBox.scrollHeight;
         });
 
-        // 4. FUNCTIONALITY
+        // Functions
         function showSection(id) {
             document.querySelectorAll('.view').forEach(v => v.classList.add('hidden'));
             document.getElementById(id).classList.remove('hidden');
@@ -217,16 +183,12 @@
 
         function doLogin() {
             const nick = document.getElementById('nickname').value;
-            const pass = document.getElementById('admin-password').value;
-            
             if(!nick) return alert("Enter a nickname");
-            
             currentUser = nick;
-            if(pass === "1234") {
+            if(document.getElementById('admin-password').value === "1234") {
                 isAdmin = true;
                 document.body.classList.add('is-admin');
             }
-
             document.getElementById('user-display-name').innerText = nick;
             document.getElementById('user-badge').classList.remove('hidden');
             document.getElementById('login-nav-btn').classList.add('hidden');
@@ -236,7 +198,6 @@
         function sendGlobalMessage() {
             const input = document.getElementById('chat-input');
             if(!input.value) return;
-
             db.get('chat').set({
                 user: currentUser,
                 text: input.value,
@@ -245,35 +206,21 @@
             input.value = "";
         }
 
-        // Admin Edit Functions
         function toggleEdit(type) {
             document.getElementById(type + '-display').classList.toggle('hidden');
             document.getElementById(type + '-edit').classList.toggle('hidden');
         }
 
         function saveAbout() {
-            const val = document.getElementById('about-input').value;
-            db.get('about').put(val);
+            db.get('about').put(document.getElementById('about-input').value);
             toggleEdit('about');
         }
 
         function saveContact() {
-            const val = document.getElementById('email-input').value;
-            db.get('email').put(val);
+            db.get('email').put(document.getElementById('email-input').value);
         }
 
-        function uploadImage(input) {
-            const file = input.files[0];
-            const reader = new FileReader();
-            reader.onloadend = function() {
-                db.get('gallery').set({ url: reader.result });
-            }
-            reader.readAsDataURL(file);
-        }
-
-        // Enter key to send
         document.getElementById('chat-input').onkeypress = (e) => { if(e.key === 'Enter') sendGlobalMessage() };
-
     </script>
 </body>
 </html>
